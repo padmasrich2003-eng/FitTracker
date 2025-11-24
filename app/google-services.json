@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002054945996",
+    "project_id": "fittrackr-debee",
+    "storage_bucket": "fittrackr-debee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002054945996:android:4e642b2602516f9ec8c669",
+        "android_client_info": {
+          "package_name": "com.example.fittrackr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAHTR6raeEZY6_KY4HGSheNGLxSZAfcPM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
