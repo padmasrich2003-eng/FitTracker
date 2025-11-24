@@ -2,6 +2,7 @@ package com.example.fittrackr
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,17 +27,27 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fittrackr.ui.theme.FitTrackrTheme
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class RegisterActivity : ComponentActivity() {
+
+    private lateinit var auth: FirebaseAuth
+    private lateinit var firestore: FirebaseFirestore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Initialize Firebase
+        auth = FirebaseAuth.getInstance()
+        firestore = FirebaseFirestore.getInstance()
+
         setContent {
             FitTrackrTheme {
                 RegisterScreen(
                     onRegister = { name, email, password ->
-                        // TODO: Hook up Firebase createUserWithEmailAndPassword(email, password)
-                        // Then store user details in Firestore (optional)
+                        createAccount(name, email, password)
                     },
                     onNavigateToLogin = {
                         startActivity(Intent(this, LoginPageActivity::class.java))
@@ -46,8 +57,48 @@ class RegisterActivity : ComponentActivity() {
             }
         }
     }
-}
 
+    private fun createAccount(name: String, email: String, password: String) {
+
+        if (email.isBlank() || password.isBlank() || name.isBlank()) {
+            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+
+                    val uid = auth.currentUser?.uid ?: return@addOnCompleteListener
+
+                    // Make a Firestore user document
+                    val userData = hashMapOf(
+                        "uid" to uid,
+                        "name" to name,
+                        "email" to email,
+                        "createdAt" to System.currentTimeMillis()
+                    )
+
+                    firestore.collection("users")
+                        .document(uid)
+                        .set(userData)
+                        .addOnSuccessListener {
+                            Toast.makeText(this, "Account created successfully", Toast.LENGTH_SHORT).show()
+
+                            // Navigate to login
+                            startActivity(Intent(this, LoginPageActivity::class.java))
+                            finish()
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(this, "Firestore error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+
+                } else {
+                    Toast.makeText(this, task.exception?.message ?: "Registration failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+    }
+}
 @Composable
 fun RegisterScreen(
     onRegister: (String, String, String) -> Unit,
@@ -69,7 +120,7 @@ fun RegisterScreen(
     val canSubmit = isNameValid && isEmailValid && isPasswordValid && doPasswordsMatch
 
     val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC)) // same as splash & login
+        colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC))
     )
 
     Box(
@@ -104,6 +155,7 @@ fun RegisterScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(Modifier.padding(16.dp)) {
+
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -113,11 +165,7 @@ fun RegisterScreen(
                         isError = showErrors && !isNameValid
                     )
                     if (showErrors && !isNameValid) {
-                        Text(
-                            "Name cannot be empty",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Text("Name cannot be empty", color = MaterialTheme.colorScheme.error)
                     }
 
                     Spacer(Modifier.height(12.dp))
@@ -131,13 +179,6 @@ fun RegisterScreen(
                         modifier = Modifier.fillMaxWidth(),
                         isError = showErrors && !isEmailValid
                     )
-                    if (showErrors && !isEmailValid) {
-                        Text(
-                            "Enter a valid email address",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Spacer(Modifier.height(12.dp))
 
@@ -150,21 +191,13 @@ fun RegisterScreen(
                         trailingIcon = {
                             IconButton(onClick = { showPassword = !showPassword }) {
                                 Icon(
-                                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = "Toggle password"
+                                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility
                                 )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         isError = showErrors && !isPasswordValid
                     )
-                    if (showErrors && !isPasswordValid) {
-                        Text(
-                            "Password must be at least 6 characters",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Spacer(Modifier.height(12.dp))
 
@@ -177,28 +210,20 @@ fun RegisterScreen(
                         trailingIcon = {
                             IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
                                 Icon(
-                                    imageVector = if (showConfirmPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = "Toggle confirm password"
+                                    imageVector = if (showConfirmPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility
                                 )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         isError = showErrors && !doPasswordsMatch
                     )
-                    if (showErrors && !doPasswordsMatch) {
-                        Text(
-                            "Passwords do not match",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Spacer(Modifier.height(16.dp))
 
                     Button(
                         onClick = {
                             showErrors = true
-                            if (canSubmit) onRegister(name.trim(), email.trim(), password)
+                            if (canSubmit) onRegister(name, email, password)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = canSubmit

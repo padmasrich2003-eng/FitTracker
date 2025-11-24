@@ -2,6 +2,7 @@ package com.example.fittrackr
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,17 +27,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fittrackr.ui.theme.FitTrackrTheme
+import com.google.firebase.auth.FirebaseAuth
 
 class LoginPageActivity : ComponentActivity() {
+
+    private lateinit var auth: FirebaseAuth
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Initialize Firebase Auth
+        auth = FirebaseAuth.getInstance()
+
         setContent {
             FitTrackrTheme {
                 LoginScreen(
                     onLogin = { email, password ->
-                        // TODO: Hook up Firebase Auth signInWithEmailAndPassword(email, password)
-                        // For now, you can show a snackbar or navigate to HomeActivity after success
+                        signInUser(email, password)
                     },
                     onNavigateToRegister = {
                         startActivity(Intent(this, RegisterActivity::class.java))
@@ -44,6 +52,31 @@ class LoginPageActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun signInUser(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    // Login success → go to Home
+                    Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, HomeActivity::class.java)
+                    startActivity(intent)
+                    finish() // so back button doesn't return to login
+                } else {
+                    // Login failed → show error
+                    Toast.makeText(
+                        this,
+                        task.exception?.localizedMessage ?: "Login failed",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
     }
 }
 
@@ -55,11 +88,6 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    var showErrors by remember { mutableStateOf(false) }
-
-    val isEmailValid = remember(email) { android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() }
-    val isPasswordValid = remember(password) { password.length >= 6 }
-    val canSubmit = isEmailValid && isPasswordValid
 
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF6A11CB), Color(0xFF2575FC)) // same as splash/register
@@ -69,12 +97,13 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(gradient)
-            .padding(24.dp)
+            .padding(24.dp),
+        contentAlignment = Alignment.TopCenter
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.Center),
+                .padding(top = 64.dp), // moves everything a bit lower
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -103,16 +132,8 @@ fun LoginScreen(
                         label = { Text("Email") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = showErrors && !isEmailValid
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    if (showErrors && !isEmailValid) {
-                        Text(
-                            text = "Enter a valid email address",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Spacer(Modifier.height(12.dp))
 
@@ -130,26 +151,16 @@ fun LoginScreen(
                                 )
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = showErrors && !isPasswordValid
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    if (showErrors && !isPasswordValid) {
-                        Text(
-                            text = "Password must be at least 6 characters",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
 
                     Spacer(Modifier.height(16.dp))
 
                     Button(
                         onClick = {
-                            showErrors = true
-                            if (canSubmit) onLogin(email.trim(), password)
+                            onLogin(email.trim(), password)
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canSubmit
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Log in")
                     }

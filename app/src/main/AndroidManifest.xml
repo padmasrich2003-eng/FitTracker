@@ -26,6 +26,12 @@
             android:name=".LoginPageActivity"/>
         <activity
             android:name=".RegisterActivity"/>
+        <activity
+            android:name=".HomeActivity"/>
+        <activity
+            android:name=".StepsActivity"/>
+        <activity
+            android:name=".WorkoutActivity"/>
     </application>
 
 </manifest>
