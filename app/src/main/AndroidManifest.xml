@@ -32,6 +32,11 @@
             android:name=".StepsActivity"/>
         <activity
             android:name=".WorkoutActivity"/>
+        <activity
+            android:name=".NutritionActivity"/>
+        <activity
+            android:name=".SleepActivity"/>
+
     </application>
 
 </manifest>

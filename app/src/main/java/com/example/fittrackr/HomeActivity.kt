@@ -2,6 +2,7 @@ package com.example.fittrackr
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fittrackr.data.FitTrackrDatabase
 import com.example.fittrackr.ui.theme.FitTrackrTheme
-import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +43,7 @@ fun HomeScreenUI() {
     val context = LocalContext.current
     val dao = remember { FitTrackrDatabase.getInstance(context).dailyStatDao() }
 
-    // Observe latest stats (read-only)
+    // Observe the most recent stat entry
     val latestStat by dao.getLatestStat().collectAsState(initial = null)
 
     val steps = latestStat?.steps ?: 0
@@ -48,10 +51,7 @@ fun HomeScreenUI() {
     val workoutMinutes = latestStat?.workoutMinutes ?: 0
 
     val gradientBg = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF4CAF50),
-            Color(0xFF1B5E20)
-        )
+        colors = listOf(Color(0xFF4CAF50), Color(0xFF1B5E20))
     )
 
     Box(
@@ -64,13 +64,11 @@ fun HomeScreenUI() {
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 70.dp)
         ) {
 
-            // Title
             Text(
                 text = "FitTrackr Dashboard",
                 fontSize = 28.sp,
@@ -78,44 +76,13 @@ fun HomeScreenUI() {
                 color = Color.White
             )
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ---- DAILY STATS CARD ----
+            DailyStatsCard(steps, calories, workoutMinutes)
+
             Spacer(modifier = Modifier.height(25.dp))
 
-            // Daily Stats Card (centered with side margins)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.9f),   // 90% width -> centered by Column
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-
-                    Text(
-                        text = "Today's Stats",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(15.dp))
-
-                    StatItem(label = "Steps", value = steps.toString())
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    StatItem(label = "Calories Burned", value = "$calories kcal")
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    StatItem(label = "Workout Minutes", value = "$workoutMinutes min")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // Quick Action Buttons
             Text(
                 text = "Quick Actions",
                 fontSize = 22.sp,
@@ -129,17 +96,12 @@ fun HomeScreenUI() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Log Workout -> go to another page, not auto-add data
                 ActionButton("Log Workout") {
-                    context.startActivity(
-                        Intent(context, WorkoutActivity::class.java)
-                    )
+                    context.startActivity(Intent(context, WorkoutActivity::class.java))
                 }
 
                 ActionButton("Track Steps") {
-                    context.startActivity(
-                        Intent(context, StepsActivity::class.java)
-                    )
+                    context.startActivity(Intent(context, StepsActivity::class.java))
                 }
             }
 
@@ -150,46 +112,71 @@ fun HomeScreenUI() {
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ActionButton("Sleep Entry") {
-                    // later: open SleepActivity
+                    context.startActivity(Intent(context, SleepActivity::class.java))
                 }
+
                 ActionButton("Nutrition") {
-                    // later: open NutritionActivity
+                    context.startActivity(Intent(context, NutritionActivity::class.java))
                 }
+            }
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // ---- LOGOUT BUTTON ----
+            Button(
+                onClick = {
+                    Toast.makeText(context, "Logged out!", Toast.LENGTH_SHORT).show()
+                    context.startActivity(Intent(context, LoginPageActivity::class.java))
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Logout", color = Color.White, fontSize = 16.sp)
             }
         }
     }
 }
 
 @Composable
-fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
+fun DailyStatsCard(steps: Int, calories: Int, workoutMinutes: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(0.9f),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Today's Statistics", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(15.dp))
+
+            StatItem("Steps", steps.toString())
+            Spacer(modifier = Modifier.height(10.dp))
+
+            StatItem("Calories Burned", "$calories kcal")
+            Spacer(modifier = Modifier.height(10.dp))
+
+            StatItem("Workout Minutes", "$workoutMinutes min")
+        }
     }
 }
 
 @Composable
-fun ActionButton(title: String, onClick: () -> Unit) {
+fun StatItem(title: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun ActionButton(name: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF4CAF50)
-        )
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
     ) {
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
     }
 }
