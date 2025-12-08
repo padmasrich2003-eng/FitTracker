@@ -1,6 +1,7 @@
 package com.example.fittrackr
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,12 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fittrackr.data.DailyStat
-import com.example.fittrackr.data.FitTrackrDatabase
 import com.example.fittrackr.ui.theme.FitTrackrTheme
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
+import com.google.firebase.firestore.FirebaseFirestore
 
 class WorkoutActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,8 +43,7 @@ class WorkoutActivity : ComponentActivity() {
 @Composable
 fun WorkoutScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val dao = remember { FitTrackrDatabase.getInstance(context).dailyStatDao() }
-    val scope = rememberCoroutineScope()
+    val db = remember { FirebaseFirestore.getInstance() }
 
     var stepsText by remember { mutableStateOf("") }
     var caloriesText by remember { mutableStateOf("") }
@@ -59,10 +55,6 @@ fun WorkoutScreen(onBack: () -> Unit) {
             Color(0xFF1B5E20)
         )
     )
-
-    val today = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-    }
 
     Scaffold(
         topBar = {
@@ -159,18 +151,30 @@ fun WorkoutScreen(onBack: () -> Unit) {
                                 val calories = caloriesText.toIntOrNull() ?: 0
                                 val minutes = minutesText.toIntOrNull() ?: 0
 
-                                scope.launch {
-                                    dao.insert(
-                                        DailyStat(
-                                            date = today,
-                                            steps = steps,
-                                            calories = calories,
-                                            workoutMinutes = minutes
-                                        )
-                                    )
-                                    // go back to Home after saving
-                                    onBack()
-                                }
+                                val data = hashMapOf(
+                                    "steps" to steps,
+                                    "calories" to calories,
+                                    "workoutMinutes" to minutes
+                                )
+
+                                db.collection("dailyStats")
+                                    .document("today")
+                                    .set(data)   // overwrite for now
+                                    .addOnSuccessListener {
+                                        Toast.makeText(
+                                            context,
+                                            "Workout saved",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        onBack()
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(
+                                            context,
+                                            "Failed to save workout",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {

@@ -19,11 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fittrackr.data.FitTrackrDatabase
 import com.example.fittrackr.ui.theme.FitTrackrTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
 
 class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,27 +28,50 @@ class HomeActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FitTrackrTheme {
-                HomeScreenUI()
+                HomeScreenUI(
+                    onLogout = {
+                        Toast.makeText(this, "Logged out!", Toast.LENGTH_SHORT).show()
+                        startActivity(Intent(this, LoginPageActivity::class.java))
+                        finish()
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun HomeScreenUI() {
-
+fun HomeScreenUI(
+    onLogout: () -> Unit
+) {
     val context = LocalContext.current
-    val dao = remember { FitTrackrDatabase.getInstance(context).dailyStatDao() }
+    val db = remember { FirebaseFirestore.getInstance() }
 
-    // Observe the most recent stat entry
-    val latestStat by dao.getLatestStat().collectAsState(initial = null)
+    // UI state for stats (comes from Firestore)
+    var steps by remember { mutableStateOf(0) }
+    var calories by remember { mutableStateOf(0) }
+    var workoutMinutes by remember { mutableStateOf(0) }
 
-    val steps = latestStat?.steps ?: 0
-    val calories = latestStat?.calories ?: 0
-    val workoutMinutes = latestStat?.workoutMinutes ?: 0
+    // Load stats once when screen opens
+    LaunchedEffect(Unit) {
+        db.collection("dailyStats")
+            .document("today")            // simple fixed doc, later you can use date
+            .get()
+            .addOnSuccessListener { doc ->
+                steps = (doc.getLong("steps") ?: 0L).toInt()
+                calories = (doc.getLong("calories") ?: 0L).toInt()
+                workoutMinutes = (doc.getLong("workoutMinutes") ?: 0L).toInt()
+            }
+            .addOnFailureListener {
+                // optional: show a toast or log error
+            }
+    }
 
     val gradientBg = Brush.verticalGradient(
-        colors = listOf(Color(0xFF4CAF50), Color(0xFF1B5E20))
+        colors = listOf(
+            Color(0xFF4CAF50),
+            Color(0xFF1B5E20)
+        )
     )
 
     Box(
@@ -78,8 +98,12 @@ fun HomeScreenUI() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ---- DAILY STATS CARD ----
-            DailyStatsCard(steps, calories, workoutMinutes)
+            // Daily Stats Card
+            DailyStatsCard(
+                steps = steps,
+                calories = calories,
+                workoutMinutes = workoutMinutes
+            )
 
             Spacer(modifier = Modifier.height(25.dp))
 
@@ -122,12 +146,8 @@ fun HomeScreenUI() {
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // ---- LOGOUT BUTTON ----
             Button(
-                onClick = {
-                    Toast.makeText(context, "Logged out!", Toast.LENGTH_SHORT).show()
-                    context.startActivity(Intent(context, LoginPageActivity::class.java))
-                },
+                onClick = { onLogout() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
             ) {
                 Text("Logout", color = Color.White, fontSize = 16.sp)
@@ -148,7 +168,11 @@ fun DailyStatsCard(steps: Int, calories: Int, workoutMinutes: Int) {
             modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Today's Statistics", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Today's Statistics",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(modifier = Modifier.height(15.dp))
 
             StatItem("Steps", steps.toString())
@@ -165,8 +189,16 @@ fun DailyStatsCard(steps: Int, calories: Int, workoutMinutes: Int) {
 @Composable
 fun StatItem(title: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -177,6 +209,11 @@ fun ActionButton(name: String, onClick: () -> Unit) {
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
     ) {
-        Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(
+            text = name,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
     }
 }
